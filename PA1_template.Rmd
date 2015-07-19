@@ -1,25 +1,101 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PeerAssignment1"
+author: "Venu Palvai"
+date: "Sunday, July 19, 2015"
+output: html_document
 ---
 
+This document shows the steps for executing PeerAssignment1 to analyze personal
+activity data of a sample individual.
 
-## Loading and preprocessing the data
+[Download unzip file from this location] [1]
 
+[1]: https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip
 
+##Loading and Pre-Processing data
 
+``` {r, echo=TRUE}
+
+activity_data <- read.csv("activity.csv" 
+                          ,colClasses = c("integer", "Date", "factor"))
+activity_data$month <- as.numeric(format(activity_data$date, "%m"))
+activity_data_noNA <- na.omit(activity_data)
+rownames(activity_data_noNA) <- 1:nrow(activity_data_noNA)
+head(activity_data_noNA)
+dim(activity_data_noNA)
+library(ggplot2)
+
+```
 ## What is mean total number of steps taken per day?
+``` {r, echo=TRUE}
 
+steps_by_day <- aggregate(steps ~ date, activity_data_noNA, sum)
+qplot(steps_by_day$steps, binwidth=1000, xlab="Total number of steps taken each day")
 
+rmean <- mean(steps_by_day$steps)
+rmedian <- median(steps_by_day$steps)
+```
+Mean is `r rmean`  
+Median is `r rmedian`
 
 ## What is the average daily activity pattern?
 
+``` {r, echo=TRUE}
+steps_by_interval <- aggregate(steps ~ interval, activity_data_noNA, mean)
+ggplot(data=steps_by_interval, aes(x=interval, y=steps)) +
+    geom_line() +
+    xlab("5-minute interval") +
+    ylab("average number of steps taken")
 
 
+```
 ## Imputing missing values
+``` {r, echo=TRUE}
+total_NA <- sum(is.na(activity_data))
+```
+Total rows with NA values `r sum(is.na(activity_data))`
+
+Create a new dataset with missing values filled in 
+loop the original dataset
+check for missing values, fill in the values with avgsteps for the interval
+``` {r, echo=TRUE}
+new_activity_data <- activity_data 
+for (i in 1:nrow(new_activity_data)) {
+    if (is.na(new_activity_data$steps[i])) {
+        new_activity_data$steps[i] <- steps_by_interval[which(new_activity_data$interval[i] == steps_by_interval$interval), ]$steps
+    }
+}
+
+head(new_activity_data)
+sum(is.na(new_activity_data))
+```
+Plotting new data with missing values replaced by avg interval steps
+``` {r, echo=TRUE}
+new_steps_by_day <- aggregate(steps ~ date, new_activity_data, sum)
+qplot(new_steps_by_day$steps, binwidth=1000, xlab="Total number of steps taken each day (No NA data)")
+
+new_rmean <- mean(new_steps_by_day$steps)
+new_rmedian <- median(new_steps_by_day$steps)
 
 
+```
+New Mean is `r new_rmean`  
+New Median is `r new_rmedian`
 
 ## Are there differences in activity patterns between weekdays and weekends?
+``` {r, echo=TRUE}
+new_activity_data$weekdays <- factor(format(new_activity_data$date, "%A"))
+levels(new_activity_data$weekdays)
+levels(new_activity_data$weekdays) <- list(weekday = c("Monday", "Tuesday",
+                                             "Wednesday", 
+                                             "Thursday", "Friday"),
+                                 weekend = c("Saturday", "Sunday"))
+levels(new_activity_data$weekdays)
+table(new_activity_data$weekdays)
+
+new_averages <- aggregate(steps ~ interval + weekdays, data=new_activity_data, mean)
+library(lattice)
+xyplot(new_averages$steps ~ new_averages$interval | new_averages$weekdays, 
+       layout = c(1, 2), type = "l", 
+       xlab = "Interval", ylab = "Number of steps")
+```
